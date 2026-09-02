@@ -1,0 +1,36 @@
+[project]
+name = "database-performance-lab"
+version = "0.1.0"
+description = "A simple asynchronous FastAPI and PostgreSQL baseline for database performance experiments."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "email-validator>=2.2.0",
+    "faker>=28.0.0",
+    "fastapi>=0.115.0",
+    "httpx>=0.27.0",
+    "psycopg[binary]>=3.2.0",
+    "pydantic>=2.8.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "uvicorn[standard]>=0.30.0",
+]
+
+[project.scripts]
+dev = "app.main:run"
+seed = "scripts.seed:run"
+test = "pytest:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "scripts"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
