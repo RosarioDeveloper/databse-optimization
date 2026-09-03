@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "clean pycache",
+      "type": "shell",
+      "command": "uv run python -c \"import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__')]\"",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

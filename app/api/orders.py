@@ -10,7 +10,9 @@ repository = BaseRepository()
 
 
 @router.get("", response_model=list[OrderResponse])
-async def list_orders(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+async def list_orders(
+    limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
+):
     return await repository.query(
         """
         SELECT id, user_id, status, total_amount, created_at
@@ -33,7 +35,9 @@ async def get_order(order_id: int):
         (order_id,),
     )
     if not rows:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+        )
     return rows[0]
 
 
@@ -53,11 +57,17 @@ async def list_order_items(order_id: int):
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(order: OrderCreate):
     if not order.items:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order must contain items")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Order must contain items"
+        )
 
-    user_rows = await repository.query("SELECT id FROM users WHERE id = %s", (order.user_id,))
+    user_rows = await repository.query(
+        "SELECT id FROM users WHERE id = %s", (order.user_id,)
+    )
     if not user_rows:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     total_amount = Decimal("0.00")
     priced_items = []
@@ -71,13 +81,15 @@ async def create_order(order: OrderCreate):
             (item.product_id,),
         )
         if not product_rows:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+            )
         unit_price = product_rows[0]["price"]
         total_amount += unit_price * item.quantity
         priced_items.append((item.product_id, item.quantity, unit_price))
 
     order_rows = await repository.query(
-        """
+        """--sql
         INSERT INTO orders (user_id, status, total_amount)
         VALUES (%s, %s, %s)
         RETURNING id, user_id, status, total_amount, created_at

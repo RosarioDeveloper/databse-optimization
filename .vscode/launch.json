@@ -1,0 +1,26 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "app.main",
+      "args": ["app.main:app"],
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "OTEL_SERVICE_NAME": "database-optmization-api",
+        "OTEL_TRACES_EXPORTER": "otlp",
+        "OTEL_METRICS_EXPORTER": "otlp"
+      },
+      "jinja": true,
+      "justMyCode": true,
+      "console": "internalConsole",
+      "redirectOutput": true,
+      "preLaunchTask": "clean pycache"
+    }
+  ]
+}
