@@ -9,13 +9,8 @@
       "type": "debugpy",
       "request": "launch",
       "module": "app.main",
-      "args": ["app.main:app"],
+      "args": ["run", "${workspaceFolder}/otlp_entrypoint.sh"],
       "envFile": "${workspaceFolder}/.env",
-      "env": {
-        "OTEL_SERVICE_NAME": "database-optmization-api",
-        "OTEL_TRACES_EXPORTER": "otlp",
-        "OTEL_METRICS_EXPORTER": "otlp"
-      },
       "jinja": true,
       "justMyCode": true,
       "console": "internalConsole",

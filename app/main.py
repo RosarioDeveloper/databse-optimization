@@ -6,8 +6,6 @@ from app.base_repository import BaseRepository
 
 from opentelemetry.instrumentation import auto_instrumentation
 
-auto_instrumentation.initialize()
-
 
 app = FastAPI(title="Database Performance Lab")
 repository = BaseRepository()
@@ -25,4 +23,9 @@ app.include_router(orders.router)
 app.include_router(transactions.router)
 
 
-uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)
+def run() -> None:
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)
+
+
+if __name__ == "__main__":
+    run()
