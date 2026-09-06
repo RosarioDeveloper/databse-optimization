@@ -1,6 +1,6 @@
-﻿# Database Performance Lab
+﻿# API Optimization
 
-`database-performance-lab` is a simple asynchronous backend for studying PostgreSQL and API performance as relational data volume and request concurrency increase.
+`api-optimization` is a simple asynchronous backend for studying PostgreSQL and API performance as relational data volume and request concurrency increase.
 
 The goal is a clean baseline, not an optimized system. This project is designed to make scenarios observable, such as: the SQL query did not change, but its performance degraded as the dataset grew.
 
@@ -47,9 +47,41 @@ Run tests:
 uv run test
 ```
 
+## Load Testing
+
+Install `autocannon` globally:
+
+```bash
+npm install -g autocannon
+```
+
+Run a concurrent load test against the local API:
+
+```bash
+chmod +x load_test.sh
+./load_test.sh
+```
+
+Configure the load with environment variables:
+
+```bash
+CONNECTIONS=5000 DURATION=60 BASE_URL=http://localhost:8000 ./load_test.sh
+```
+
+`CONNECTIONS` is the total number of concurrent connections split across all scenarios.
+
 ## Docker Compose
 
-Start the API and PostgreSQL:
+Create a local `.env` with the Grafana Cloud credentials used by the OpenTelemetry Collector:
+
+```env
+GRAFANA_CLOUD_OTLP_ENDPOINT=https://otlp-gateway-prod-eu-west-6.grafana.net/otlp
+GRAFANA_CLOUD_INSTANCE_ID=
+GRAFANA_CLOUD_API_KEY=
+GRAFANA_CLOUD_BASIC_AUTH_HEADER="Basic <BASE64_INSTANCE_ID_API_KEY>"
+```
+
+Start the API, PostgreSQL, and OpenTelemetry Collector:
 
 ```bash
 docker compose up --build
@@ -63,10 +95,12 @@ http://localhost:8000/docs
 
 PostgreSQL uses persistent storage. On first initialization, Docker Compose mounts `database/schema.sql` into PostgreSQL's initialization directory so the schema is created automatically.
 
+The API container starts through `uv run opentelemetry-instrument python -m app.main` and exports OTLP data to the local Collector at `http://otel-collector:4318`. The Collector forwards application telemetry and host metrics to Grafana Cloud.
+
 ## Project Structure
 
 ```text
-database-performance-lab/
+api-optimization/
 ├── app/
 │   ├── main.py
 │   ├── config.py
@@ -79,8 +113,10 @@ database-performance-lab/
 ├── scripts/
 │   └── seed.py
 ├── tests/
+├── load_test.sh
 ├── Dockerfile
 ├── docker-compose.yml
+├── otel-collector.yaml
 ├── pyproject.toml
 ├── uv.lock
 ├── .env.example
