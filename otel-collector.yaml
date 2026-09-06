@@ -1,0 +1,199 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  host_metrics:
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+          system.cpu.logical.count:
+            enabled: true
+
+      disk:
+
+      load:
+
+      filesystem:
+        exclude_mount_points:
+          mount_points:
+            - /dev/*
+            - /proc/*
+            - /sys/*
+            - /run/k3s/containerd/*
+            - /var/lib/docker/*
+            - /var/lib/kubelet/*
+            - /snap/*
+          match_type: regexp
+
+        exclude_fs_types:
+          fs_types:
+            - autofs
+            - binfmt_misc
+            - bpf
+            - cgroup2
+            - configfs
+            - debugfs
+            - devpts
+            - devtmpfs
+            - fusectl
+            - hugetlbfs
+            - iso9660
+            - mqueue
+            - nsfs
+            - overlay
+            - proc
+            - procfs
+            - pstore
+            - rpc_pipefs
+            - securityfs
+            - selinuxfs
+            - squashfs
+            - sysfs
+            - tracefs
+          match_type: strict
+
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+          system.memory.limit:
+            enabled: true
+
+      network:
+
+      paging:
+        metrics:
+          system.paging.usage:
+            enabled: true
+
+      processes:
+
+      process:
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+
+      system:
+        metrics:
+          system.uptime:
+            enabled: true
+
+extensions:
+  basicauth/grafana_cloud:
+    client_auth:
+      username: '${env:GRAFANA_CLOUD_INSTANCE_ID}'
+      password: '${env:GRAFANA_CLOUD_API_KEY}'
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  resource_detection:
+    detectors:
+      - env
+      - system
+
+    system:
+      resource_attributes:
+        # Docker não possui host.id estável.
+        # grafana.host.id virá de OTEL_RESOURCE_ATTRIBUTES.
+        host.id:
+          enabled: false
+
+        host.name:
+          enabled: true
+
+  transform/promote_metric_attributes:
+    metric_statements:
+      - set(
+        datapoint.attributes["host.name"],
+        resource.attributes["host.name"]
+        )
+
+  batch:
+
+exporters:
+  otlp_http/grafana_cloud:
+    endpoint: '${env:GRAFANA_CLOUD_OTLP_ENDPOINT}'
+
+    auth:
+      authenticator: basicauth/grafana_cloud
+
+service:
+  extensions:
+    - basicauth/grafana_cloud
+
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+
+      processors:
+        - memory_limiter
+        - resource_detection
+        - batch
+
+      exporters:
+        - otlp_http/grafana_cloud
+
+    metrics:
+      receivers:
+        - otlp
+        - host_metrics
+
+      processors:
+        - memory_limiter
+        - resource_detection
+        - transform/promote_metric_attributes
+        - batch
+
+      exporters:
+        - otlp_http/grafana_cloud
+
+    logs:
+      receivers:
+        - otlp
+
+      processors:
+        - memory_limiter
+        - resource_detection
+        - batch
+
+      exporters:
+        - otlp_http/grafana_cloud
+
+  telemetry:
+    resource:
+      attributes:
+        - name: host.name
+          value: '${env:HOSTNAME}'
+
+    metrics:
+      readers:
+        - periodic:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: '${env:GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/metrics'
+                headers:
+                  - name: authorization
+                    value: '${env:GRAFANA_CLOUD_BASIC_AUTH_HEADER}'
+
+    logs:
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: '${env:GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/logs'
+                headers:
+                  - name: authorization
+                    value: '${env:GRAFANA_CLOUD_BASIC_AUTH_HEADER}'

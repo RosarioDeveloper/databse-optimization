@@ -1,28 +1,61 @@
+name: api-optimization
+
 services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: database_optimization
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - '5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
 
-  # api:
-  #   build: .
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_DB: databse_optimization
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: postgres
-  #   ports:
-  #     - '8000:8000'
-  #   depends_on:
-  #     - postgres
+  api:
+    build: .
+    command:
+      - uv
+      - run
+      - opentelemetry-instrument
+      - python
+      - -m
+      - app.main
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
+      OTEL_PYTHON_LOG_CORRELATION: ${OTEL_PYTHON_LOG_CORRELATION}
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: ${OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES}
+    ports:
+      - '8000:8000'
+    depends_on:
+      - postgres
+      - otel-collector
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.160.0
+    container_name: otel-collector
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    environment:
+      GRAFANA_CLOUD_OTLP_ENDPOINT: ${GRAFANA_CLOUD_OTLP_ENDPOINT}
+      GRAFANA_CLOUD_INSTANCE_ID: ${GRAFANA_CLOUD_INSTANCE_ID}
+      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY}
+      GRAFANA_CLOUD_BASIC_AUTH_HEADER: ${GRAFANA_CLOUD_BASIC_AUTH_HEADER}
+      HOSTNAME: api-optimization-collector
+      OTEL_RESOURCE_ATTRIBUTES: 'grafana.host.id=api-optimization-docker'
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
 
 volumes:
   postgres-data:
