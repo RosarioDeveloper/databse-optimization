@@ -84,7 +84,20 @@ receivers:
           system.uptime:
             enabled: true
 
+  postgresql:
+    endpoint: postgres:5432
+    username: '${env:POSTGRES_USER}'
+    password: '${env:POSTGRES_PASSWORD}'
+    databases:
+      - '${env:POSTGRES_DB}'
+    collection_interval: 10s
+    tls:
+      insecure: true
+
 extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
   basicauth/grafana_cloud:
     client_auth:
       username: '${env:GRAFANA_CLOUD_INSTANCE_ID}'
@@ -118,6 +131,18 @@ processors:
         resource.attributes["host.name"]
         )
 
+  resource/postgresql:
+    attributes:
+      - key: service.name
+        value: postgresql
+        action: upsert
+      - key: service.namespace
+        value: api-optimization-group
+        action: upsert
+      - key: deployment.environment.name
+        value: development
+        action: upsert
+
   batch:
 
 exporters:
@@ -129,6 +154,7 @@ exporters:
 
 service:
   extensions:
+    - health_check
     - basicauth/grafana_cloud
 
   pipelines:
@@ -153,6 +179,18 @@ service:
         - memory_limiter
         - resource_detection
         - transform/promote_metric_attributes
+        - batch
+
+      exporters:
+        - otlp_http/grafana_cloud
+
+    metrics/postgresql:
+      receivers:
+        - postgresql
+
+      processors:
+        - memory_limiter
+        - resource/postgresql
         - batch
 
       exporters:
