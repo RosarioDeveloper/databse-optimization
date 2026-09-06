@@ -1,5 +1,5 @@
 [project]
-name = "database-performance-lab"
+name = "api-optimization"
 version = "0.1.0"
 description = "A simple asynchronous FastAPI and PostgreSQL baseline for database performance experiments."
 readme = "README.md"

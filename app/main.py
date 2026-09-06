@@ -4,10 +4,7 @@ import uvicorn
 from app.api import orders, products, transactions, users
 from app.base_repository import BaseRepository
 
-from opentelemetry.instrumentation import auto_instrumentation
-
-
-app = FastAPI(title="Database Performance Lab")
+app = FastAPI(title="API Optimization")
 repository = BaseRepository()
 
 

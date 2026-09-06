@@ -1,4 +1,4 @@
-Create a backend project called `database-performance-lab`.
+Create a backend project called `api-optimization`.
 
 The project is a simple laboratory for studying PostgreSQL and API performance with large relational datasets and high request concurrency.
 
@@ -366,7 +366,7 @@ Do not use Pydantic as a database abstraction.
 Use:
 
 ```text
-database-performance-lab/
+api-optimization/
 ├── app/
 │   ├── main.py
 │   ├── config.py

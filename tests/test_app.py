@@ -20,4 +20,4 @@ def test_openapi_is_available():
     response = TestClient(app).get("/openapi.json")
 
     assert response.status_code == 200
-    assert response.json()["info"]["title"] == "Database Performance Lab"
+    assert response.json()["info"]["title"] == "API Optimization"
