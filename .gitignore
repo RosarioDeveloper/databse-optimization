@@ -13,3 +13,4 @@ wheels/
 .env
 
 AGENTS.md
+otl_entrypoint.sh
