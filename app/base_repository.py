@@ -1,16 +1,24 @@
 from typing import Any
 
 from psycopg.abc import QueryNoTemplate
+from psycopg.rows import dict_row
+from psycopg_pool import PoolTimeout
 
-from app.database import get_connection
+from app.database import pool
+from app.logger import logger
 
 
 class BaseRepository:
     async def query(self, sql: QueryNoTemplate, params: tuple[Any, ...] | None = None):
-        async with get_connection() as conn:
-            async with conn.cursor() as cursor:
+        try:
+            async with pool.connection() as conn, conn.cursor(
+                row_factory=dict_row
+            ) as cursor:
                 await cursor.execute(sql, params)
                 if cursor.description is None:
                     return []
 
                 return await cursor.fetchall()
+        except PoolTimeout:
+            logger.exception("Database connection pool timeout")
+            raise

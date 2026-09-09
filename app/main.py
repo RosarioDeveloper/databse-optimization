@@ -1,11 +1,26 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 import uvicorn
 
 from app.api import orders, products, transactions, users
 from app.base_repository import BaseRepository
+from app.database import pool
 
-app = FastAPI(title="API Optimization")
 repository = BaseRepository()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await pool.open()
+    yield
+    await pool.close()
+
+
+app = FastAPI(
+    title="API Optimization",
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
