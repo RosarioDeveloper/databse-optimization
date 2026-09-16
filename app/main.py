@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-import os
 from typing import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 from slowapi.errors import RateLimitExceeded
 import uvicorn
 
+from app import config, logger
 from app.api import orders, products, transactions, users
 from app.base_repository import BaseRepository
 from app.database import pool
@@ -14,6 +14,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from cashews import cache
 
 repository = BaseRepository()
 
@@ -22,7 +23,7 @@ limiter_config = Limiter(
     key_func=get_remote_address,
     default_limits=["100/second"],
     application_limits=["100/second"],
-    storage_uri=os.getenv("REDIS_URL", "memory://"),
+    # storage_uri=config.REDIS_URL,
     headers_enabled=True,
 )
 
@@ -30,6 +31,7 @@ limiter_config = Limiter(
 # Application
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    cache.setup(config.REDIS_URL)
     await pool.open()
     # await pool.wait()
     yield
@@ -44,7 +46,7 @@ app = FastAPI(
 
 # Middlewares
 app.state.limiter = limiter_config
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -70,7 +72,7 @@ app.include_router(transactions.router)
 @app.get("/health")
 async def health():
     rows = await repository.query("SELECT 1 AS ok;")
-    return {"status": "ok", "database": rows[0]["ok"] == 1}
+    return {"status": "ok", "database": rows[0]["ok"] == 1}  # type: ignore
 
 
 def run() -> None:

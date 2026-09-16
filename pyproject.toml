@@ -5,6 +5,7 @@ description = "A simple asynchronous FastAPI and PostgreSQL baseline for databas
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "cashews>=7.5.0",
     "email-validator>=2.2.0",
     "faker>=28.0.0",
     "fastapi>=0.115.0",
@@ -33,14 +34,16 @@ dependencies = [
     "pydantic>=2.8.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
+    "redis>=8.1.0",
     "slowapi>=0.1.10",
     "uvicorn[standard]>=0.30.0",
 ]
 
 [project.scripts]
-dev = "app.main:run"
+dev = " app.main:run"
 seed = "scripts.seed:run"
 test = "pytest:main"
+client = "scripts.client:run"
 
 [build-system]
 requires = ["hatchling"]

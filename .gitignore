@@ -14,3 +14,5 @@ wheels/
 
 AGENTS.md
 otl_entrypoint.sh
+load_test.sh
+scripts/client.py

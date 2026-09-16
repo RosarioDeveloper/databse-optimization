@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 set -u
 
-BASE_URL="${BASE_URL:-http://localhost:8000}"
+# uv run python -c "import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__')]"
+
+BASE_URL="${BASE_URL:-http://0.0.0.0:8000}"
 CONNECTIONS="${CONNECTIONS:-2000}"
 DURATION="${DURATION:-30}"
 PIPELINING="${PIPELINING:-1}"
-REQUESTS_PER_SECOND="${REQUESTS_PER_SECOND:-1000}"
+REQUESTS_PER_SECOND="${REQUESTS_PER_SECOND:-95}"
 
 SCENARIOS=(
   # "users-list|/users?limit=100&offset=0"
   # "products-list|/products?limit=100&offset=0"
-  # "orders-list|/orders?limit=100&offset=0"
-  "transactions-list|/transactions?limit=100&offset=0"
+  # "transactions-list|/transactions?limit=100&offset=0"
+  "orders-list|/orders?limit=100&offset=0"
   "user-orders|/users/1/orders?limit=100&offset=0"
   "order-items|/orders/1/items"
 )

@@ -1,5 +1,7 @@
+from cashews import cache
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app import config
 from app.base_repository import BaseRepository
 from app.schemas.orders import OrderResponse
 from app.schemas.transactions import TransactionResponse
@@ -10,7 +12,10 @@ repository = BaseRepository()
 
 
 @router.get("", response_model=list[UserResponse])
-async def list_users(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+@cache(ttl=config.CACHE_TTL)
+async def list_users(
+    limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
+):
     return await repository.query(
         """
         SELECT id, name, email, created_at
@@ -23,6 +28,7 @@ async def list_users(limit: int = Query(50, ge=1, le=500), offset: int = Query(0
 
 
 @router.get("/{user_id}", response_model=UserResponse)
+@cache(ttl=config.CACHE_TTL)
 async def get_user(user_id: int):
     rows = await repository.query(
         """
@@ -33,11 +39,14 @@ async def get_user(user_id: int):
         (user_id,),
     )
     if not rows:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return rows[0]
 
 
 @router.get("/{user_id}/orders", response_model=list[OrderResponse])
+@cache(ttl=config.CACHE_TTL)
 async def list_user_orders(
     user_id: int,
     limit: int = Query(50, ge=1, le=500),
@@ -56,6 +65,7 @@ async def list_user_orders(
 
 
 @router.get("/{user_id}/transactions", response_model=list[TransactionResponse])
+@cache(ttl=config.CACHE_TTL)
 async def list_user_transactions(
     user_id: int,
     limit: int = Query(50, ge=1, le=500),
@@ -74,6 +84,7 @@ async def list_user_transactions(
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@cache(ttl=config.CACHE_TTL)
 async def create_user(user: UserCreate):
     rows = await repository.query(
         """
@@ -83,4 +94,4 @@ async def create_user(user: UserCreate):
         """,
         (user.name, str(user.email)),
     )
-    return rows[0]
+    return rows[0]  # type: ignore

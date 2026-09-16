@@ -20,19 +20,23 @@ services:
 
   api:
     build: .
-    command:
-      - uv
-      - run
-      - opentelemetry-instrument
-      - python
-      - -m
-      - app.main
+    command: uv run opentelemetry-instrument python -m app.main
+    # command:
+    # - uv
+    # - run
+    # - opentelemetry-instrument
+    # - python
+    # - -m
+    # - app.main
+
     environment:
+      PYTHONUNBUFFERED: '1'
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
       OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER}
       OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER}
@@ -44,11 +48,27 @@ services:
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES}
     ports:
       - '8000:8000'
+    volumes:
+      - ./app:/app/app
     depends_on:
       postgres:
         condition: service_healthy
-      otel-collector:
+      redis:
         condition: service_healthy
+      # otel-collector:
+      #   condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.160.0
@@ -85,3 +105,4 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:

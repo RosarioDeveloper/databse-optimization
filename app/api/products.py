@@ -1,5 +1,7 @@
+from cashews import cache
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app import config
 from app.base_repository import BaseRepository
 from app.schemas.products import ProductCreate, ProductResponse
 
@@ -8,7 +10,10 @@ repository = BaseRepository()
 
 
 @router.get("", response_model=list[ProductResponse])
-async def list_products(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+@cache(ttl=config.CACHE_TTL)
+async def list_products(
+    limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
+):
     return await repository.query(
         """
         SELECT id, name, description, price, created_at
@@ -21,6 +26,7 @@ async def list_products(limit: int = Query(50, ge=1, le=500), offset: int = Quer
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
+@cache(ttl=config.CACHE_TTL)
 async def get_product(product_id: int):
     rows = await repository.query(
         """
@@ -31,11 +37,14 @@ async def get_product(product_id: int):
         (product_id,),
     )
     if not rows:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
     return rows[0]
 
 
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+@cache(ttl=config.CACHE_TTL)
 async def create_product(product: ProductCreate):
     rows = await repository.query(
         """

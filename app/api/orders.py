@@ -1,7 +1,9 @@
 from decimal import Decimal
 
+from cashews import cache
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app import config
 from app.base_repository import BaseRepository
 from app.schemas.orders import OrderCreate, OrderItemResponse, OrderResponse
 
@@ -10,9 +12,15 @@ repository = BaseRepository()
 
 
 @router.get("", response_model=list[OrderResponse])
+@cache(ttl=config.CACHE_TTL)
 async def list_orders(
     limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
 ):
+    print("entrei")
+
+    from app.logger import logger
+
+    logger.info("hellow word")
     return await repository.query(
         """
         SELECT id, user_id, status, total_amount, created_at
@@ -25,6 +33,7 @@ async def list_orders(
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
+@cache(ttl=config.CACHE_TTL)
 async def get_order(order_id: int):
     rows = await repository.query(
         """
@@ -42,6 +51,7 @@ async def get_order(order_id: int):
 
 
 @router.get("/{order_id}/items", response_model=list[OrderItemResponse])
+@cache(ttl=config.CACHE_TTL)
 async def list_order_items(order_id: int):
     return await repository.query(
         """
@@ -55,6 +65,7 @@ async def list_order_items(order_id: int):
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@cache(ttl=config.CACHE_TTL)
 async def create_order(order: OrderCreate):
     if not order.items:
         raise HTTPException(
@@ -96,7 +107,7 @@ async def create_order(order: OrderCreate):
         """,
         (order.user_id, "pending", total_amount),
     )
-    created_order = order_rows[0]
+    created_order = order_rows[0]  # type: ignore
 
     for product_id, quantity, unit_price in priced_items:
         await repository.query(
