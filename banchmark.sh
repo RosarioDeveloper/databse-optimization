@@ -4,138 +4,201 @@ set -u
 # uv run python -c "import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__')]"
 
 BASE_URL="${BASE_URL:-http://0.0.0.0:8000}"
-CONNECTIONS="${CONNECTIONS:-2000}"
-DURATION="${DURATION:-30}"
-PIPELINING="${PIPELINING:-1}"
-REQUESTS_PER_SECOND="${REQUESTS_PER_SECOND:-95}"
+# CONNECTIONS="${CONNECTIONS:-2000}"
+# DURATION="${DURATION:-30}"
+# PIPELINING="${PIPELINING:-1}"
+# REQUESTS_PER_SECOND="${REQUESTS_PER_SECOND:-300}"
 
-SCENARIOS=(
-  # "users-list|/users?limit=100&offset=0"
-  # "products-list|/products?limit=100&offset=0"
-  # "transactions-list|/transactions?limit=100&offset=0"
-  "orders-list|/orders?limit=100&offset=0"
-  "user-orders|/users/1/orders?limit=100&offset=0"
-  "order-items|/orders/1/items"
-)
+USER_COUNT=300
+TOTAL_RPS=200
 
-if ! command -v autocannon >/dev/null 2>&1; then
-  printf 'autocannon is required. Install it globally with:\n\n'
-  printf '  npm install -g autocannon\n'
-  exit 1
-fi
+CONNECTIONS=2000
+DURATION=30s
+RPS=200
 
-if ! command -v curl >/dev/null 2>&1; then
-  printf 'curl is required to check application health before the load test.\n'
-  exit 1
-fi
+SLO_P99_MS=500
+SLO_MIN_RPS=200
 
-if ! [[ "$CONNECTIONS" =~ ^[0-9]+$ ]] || [ "$CONNECTIONS" -lt 1 ]; then
-  printf 'CONNECTIONS must be a positive integer. Current value: %s\n' "$CONNECTIONS"
-  exit 1
-fi
+# oha \
+#   -c "$CONNECTIONS" \
+#   -z "$DURATION" \
+#   -q "$RPS" \
+#   http://localhost:8000/orders \
+#   | tee result.txt
 
-if ! [[ "$DURATION" =~ ^[0-9]+$ ]] || [ "$DURATION" -lt 1 ]; then
-  printf 'DURATION must be a positive integer. Current value: %s\n' "$DURATION"
-  exit 1
-fi
+# P99=$(grep "99.00% in" result.txt | awk '{print $3}')
+# ACTUAL_RPS=$(grep "Requests/sec:" result.txt | awk '{print $2}')
 
-if ! [[ "$PIPELINING" =~ ^[0-9]+$ ]] || [ "$PIPELINING" -lt 1 ]; then
-  printf 'PIPELINING must be a positive integer. Current value: %s\n' "$PIPELINING"
-  exit 1
-fi
+# echo
+# echo "P99: ${P99} ms"
+# echo "RPS:  ${ACTUAL_RPS}"
 
-if ! [[ "$REQUESTS_PER_SECOND" =~ ^[0-9]+$ ]] || [ "$REQUESTS_PER_SECOND" -lt 1 ]; then
-  printf 'REQUESTS_PER_SECOND must be a positive integer. Current value: %s\n' "$REQUESTS_PER_SECOND"
-  exit 1
-fi
+# awk "BEGIN {
+#   failed = 0
 
-printf 'Checking API health at %s/health...\n' "$BASE_URL"
-if ! curl --fail --silent --show-error "$BASE_URL/health" >/dev/null; then
-  printf 'API is not reachable. Start it first with `uv run dev` or Docker Compose.\n'
-  exit 1
-fi
+#   if ($P99 <= $SLO_P99_MS)
+#     print \"P99 SLO: PASS\"
+#   else {
+#     print \"P99 SLO: FAIL\"
+#     failed = 1
+#   }
 
-scenario_count="${#SCENARIOS[@]}"
-base_connections=$((CONNECTIONS / scenario_count))
-remaining_connections=$((CONNECTIONS % scenario_count))
-base_requests_per_second=$((REQUESTS_PER_SECOND / scenario_count))
-remaining_requests_per_second=$((REQUESTS_PER_SECOND % scenario_count))
+#   if ($ACTUAL_RPS >= $SLO_MIN_RPS)
+#     print \"RPS SLO: PASS\"
+#   else {
+#     print \"RPS SLO: FAIL\"
+#     failed = 1
+#   }
 
-if [ "$base_connections" -lt 1 ]; then
-  printf 'CONNECTIONS must be at least the number of scenarios (%s). Current value: %s\n' "$scenario_count" "$CONNECTIONS"
-  exit 1
-fi
+#   exit failed
+# }"
 
-if [ "$base_requests_per_second" -lt 1 ]; then
-  printf 'REQUESTS_PER_SECOND must be at least the number of scenarios (%s). Current value: %s\n' "$scenario_count" "$REQUESTS_PER_SECOND"
-  exit 1
-fi
+oha \
+  -c 256 \
+  -z 30s \
+  -q 200 \
+  "${BASE_URL}/users/1/orders?limit=100&offset=0"
 
-log_dir="$(mktemp -d)"
-pids=()
-names=()
-logs=()
 
-cleanup() {
-  for pid in "${pids[@]:-}"; do
-    if kill -0 "$pid" >/dev/null 2>&1; then
-      kill "$pid" >/dev/null 2>&1 || true
-    fi
-  done
-  rm -rf "$log_dir"
-}
-trap cleanup INT TERM EXIT
+# Orders
+# for user_id in $(seq 1 "$USER_COUNT"); do
+#   autocannon \
+#     --connections 1 \
+#     --duration "$DURATION" \
+#     --pipelining "$PIPELINING" \
+#     "$BASE_URL/users/$user_id/orders?limit=100&offset=0" &
+# done
 
-printf '\nStarting concurrent load test\n'
-printf 'Base URL: %s\n' "$BASE_URL"
-printf 'Total connections: %s\n' "$CONNECTIONS"
-printf 'Duration: %ss\n' "$DURATION"
-printf 'Pipelining: %s\n' "$PIPELINING"
-printf 'Requests per second: %s\n\n' "$REQUESTS_PER_SECOND"
+# wait
 
-for index in "${!SCENARIOS[@]}"; do
-  scenario="${SCENARIOS[$index]}"
-  name="${scenario%%|*}"
-  path="${scenario#*|}"
-  scenario_connections="$base_connections"
-  scenario_requests_per_second="$base_requests_per_second"
 
-  if [ "$index" -lt "$remaining_connections" ]; then
-    scenario_connections=$((scenario_connections + 1))
-  fi
+# SCENARIOS=(
+#   "users-list|/users?limit=100&offset=0"
+#   "products-list|/products?limit=100&offset=0"
+#   "transactions-list|/transactions?limit=100&offset=0"
+#   "orders-list|/orders?limit=100&offset=0"
+#   "user-orders|/users/1/orders?limit=100&offset=0"
+#   "order-items|/orders/1/items"
+# )
 
-  if [ "$index" -lt "$remaining_requests_per_second" ]; then
-    scenario_requests_per_second=$((scenario_requests_per_second + 1))
-  fi
+# if ! command -v autocannon >/dev/null 2>&1; then
+#   printf 'autocannon is required. Install it globally with:\n\n'
+#   printf '  npm install -g autocannon\n'
+#   exit 1
+# fi
 
-  log_file="$log_dir/$name.log"
-  url="$BASE_URL$path"
+# if ! command -v curl >/dev/null 2>&1; then
+#   printf 'curl is required to check application health before the load test.\n'
+#   exit 1
+# fi
 
-  printf 'Running %-18s %4s connections  %4s req/s  %s\n' "$name" "$scenario_connections" "$scenario_requests_per_second" "$url"
-  autocannon \
-    --connections "$scenario_connections" \
-    --duration "$DURATION" \
-    --pipelining "$PIPELINING" \
-    --overallRate "$scenario_requests_per_second" \
-    "$url" >"$log_file" 2>&1 &
+# if ! [[ "$CONNECTIONS" =~ ^[0-9]+$ ]] || [ "$CONNECTIONS" -lt 1 ]; then
+#   printf 'CONNECTIONS must be a positive integer. Current value: %s\n' "$CONNECTIONS"
+#   exit 1
+# fi
 
-  pids+=("$!")
-  names+=("$name")
-  logs+=("$log_file")
-done
+# if ! [[ "$DURATION" =~ ^[0-9]+$ ]] || [ "$DURATION" -lt 1 ]; then
+#   printf 'DURATION must be a positive integer. Current value: %s\n' "$DURATION"
+#   exit 1
+# fi
 
-status=0
-for index in "${!pids[@]}"; do
-  if ! wait "${pids[$index]}"; then
-    printf '\nScenario failed: %s\n' "${names[$index]}"
-    status=1
-  fi
-done
+# if ! [[ "$PIPELINING" =~ ^[0-9]+$ ]] || [ "$PIPELINING" -lt 1 ]; then
+#   printf 'PIPELINING must be a positive integer. Current value: %s\n' "$PIPELINING"
+#   exit 1
+# fi
 
-printf '\nLoad test results\n'
-for index in "${!logs[@]}"; do
-  printf '\n--- %s ---\n' "${names[$index]}"
-  sed 's/^/  /' "${logs[$index]}"
-done
+# if ! [[ "$REQUESTS_PER_SECOND" =~ ^[0-9]+$ ]] || [ "$REQUESTS_PER_SECOND" -lt 1 ]; then
+#   printf 'REQUESTS_PER_SECOND must be a positive integer. Current value: %s\n' "$REQUESTS_PER_SECOND"
+#   exit 1
+# fi
 
-exit "$status"
+# printf 'Checking API health at %s/health...\n' "$BASE_URL"
+# if ! curl --fail --silent --show-error "$BASE_URL/health" >/dev/null; then
+#   printf 'API is not reachable. Start it first with `uv run dev` or Docker Compose.\n'
+#   exit 1
+# fi
+
+# scenario_count="${#SCENARIOS[@]}"
+# base_connections=$((CONNECTIONS / scenario_count))
+# remaining_connections=$((CONNECTIONS % scenario_count))
+# base_requests_per_second=$((REQUESTS_PER_SECOND / scenario_count))
+# remaining_requests_per_second=$((REQUESTS_PER_SECOND % scenario_count))
+
+# if [ "$base_connections" -lt 1 ]; then
+#   printf 'CONNECTIONS must be at least the number of scenarios (%s). Current value: %s\n' "$scenario_count" "$CONNECTIONS"
+#   exit 1
+# fi
+
+# if [ "$base_requests_per_second" -lt 1 ]; then
+#   printf 'REQUESTS_PER_SECOND must be at least the number of scenarios (%s). Current value: %s\n' "$scenario_count" "$REQUESTS_PER_SECOND"
+#   exit 1
+# fi
+
+# log_dir="$(mktemp -d)"
+# pids=()
+# names=()
+# logs=()
+
+# cleanup() {
+#   for pid in "${pids[@]:-}"; do
+#     if kill -0 "$pid" >/dev/null 2>&1; then
+#       kill "$pid" >/dev/null 2>&1 || true
+#     fi
+#   done
+#   rm -rf "$log_dir"
+# }
+# trap cleanup INT TERM EXIT
+
+# printf '\nStarting concurrent load test\n'
+# printf 'Base URL: %s\n' "$BASE_URL"
+# printf 'Total connections: %s\n' "$CONNECTIONS"
+# printf 'Duration: %ss\n' "$DURATION"
+# printf 'Pipelining: %s\n' "$PIPELINING"
+# printf 'Requests per second: %s\n\n' "$REQUESTS_PER_SECOND"
+
+# for index in "${!SCENARIOS[@]}"; do
+#   scenario="${SCENARIOS[$index]}"
+#   name="${scenario%%|*}"
+#   path="${scenario#*|}"
+#   scenario_connections="$base_connections"
+#   scenario_requests_per_second="$base_requests_per_second"
+
+#   if [ "$index" -lt "$remaining_connections" ]; then
+#     scenario_connections=$((scenario_connections + 1))
+#   fi
+
+#   if [ "$index" -lt "$remaining_requests_per_second" ]; then
+#     scenario_requests_per_second=$((scenario_requests_per_second + 1))
+#   fi
+
+#   log_file="$log_dir/$name.log"
+#   url="$BASE_URL$path"
+
+#   printf 'Running %-18s %4s connections  %4s req/s  %s\n' "$name" "$scenario_connections" "$scenario_requests_per_second" "$url"
+#   autocannon \
+#     --connections "$scenario_connections" \
+#     --duration "$DURATION" \
+#     --pipelining "$PIPELINING" \
+#     --overallRate "$scenario_requests_per_second" \
+#     "$url" >"$log_file" 2>&1 &
+
+#   pids+=("$!")
+#   names+=("$name")
+#   logs+=("$log_file")
+# done
+
+# status=0
+# for index in "${!pids[@]}"; do
+#   if ! wait "${pids[$index]}"; then
+#     printf '\nScenario failed: %s\n' "${names[$index]}"
+#     status=1
+#   fi
+# done
+
+# printf '\nLoad test results\n'
+# for index in "${!logs[@]}"; do
+#   printf '\n--- %s ---\n' "${names[$index]}"
+#   sed 's/^/  /' "${logs[$index]}"
+# done
+
+# exit "$status"

@@ -1,29 +1,26 @@
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable
-from fastapi import FastAPI, Request, Response
-from slowapi.errors import RateLimitExceeded
-import uvicorn
 
-from app import config, logger
+import uvicorn
+from cashews import cache
+from fastapi import FastAPI
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+
+from app import config
 from app.api import orders, products, transactions, users
 from app.base_repository import BaseRepository
 from app.database import pool
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.middleware import SlowAPIMiddleware
-
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-from cashews import cache
 
 repository = BaseRepository()
 
 # Rate Limiter
 limiter_config = Limiter(
     key_func=get_remote_address,
-    default_limits=["100/second"],
-    application_limits=["100/second"],
-    # storage_uri=config.REDIS_URL,
+    default_limits=[f"{config.RPS}/second"],
+    # application_limits=["900/second"],
+    storage_uri=config.REDIS_URL,
     headers_enabled=True,
 )
 
@@ -33,7 +30,7 @@ limiter_config = Limiter(
 async def lifespan(app: FastAPI):
     cache.setup(config.REDIS_URL)
     await pool.open()
-    # await pool.wait()
+    await pool.wait()
     yield
     await pool.close()
 
@@ -50,16 +47,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 app.add_middleware(SlowAPIMiddleware)
 
 
-@app.middleware("http")
-async def http_intercept(
-    req: Request, call_next: Callable[[Request], Awaitable[Response]]
-):
-    response = await call_next(req)
-    pool_stats = pool.get_stats()
-    print(f"Using {pool_stats['pool_size']}/{pool_stats['pool_max']} connections.")
-    print(f"Request waiting {pool_stats['requests_waiting']}/")
+# @app.middleware("http")
+# async def http_intercept(
+#     req: Request, call_next: Callable[[Request], Awaitable[Response]]
+# ):
+#     response = await call_next(req)
+#     pool_stats = pool.get_stats()
+#     print(f"Using {pool_stats['pool_size']}/{pool_stats['pool_max']} connections.")
+#     print(f"Request waiting {pool_stats['requests_waiting']}/")
 
-    return response
+#     return response
 
 
 # Routes
@@ -76,7 +73,12 @@ async def health():
 
 
 def run() -> None:
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
 
 
 if __name__ == "__main__":

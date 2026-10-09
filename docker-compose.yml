@@ -2,7 +2,7 @@ name: api-optimization
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,7 +20,7 @@ services:
 
   api:
     build: .
-    command: uv run opentelemetry-instrument python -m app.main
+    command: uv run opentelemetry-instrument  python -m app.main
     # command:
     # - uv
     # - run
@@ -55,8 +55,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # otel-collector:
-      #   condition: service_healthy
+      otel-collector:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine

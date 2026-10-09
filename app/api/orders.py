@@ -16,19 +16,15 @@ repository = BaseRepository()
 async def list_orders(
     limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
 ):
-    print("entrei")
-
-    from app.logger import logger
-
-    logger.info("hellow word")
     return await repository.query(
-        """
+        """--sql
         SELECT id, user_id, status, total_amount, created_at
         FROM orders
+        WHERE id > %s
         ORDER BY id
-        LIMIT %s OFFSET %s
+        LIMIT %s
         """,
-        (limit, offset),
+        (offset, limit),
     )
 
 
@@ -36,7 +32,7 @@ async def list_orders(
 @cache(ttl=config.CACHE_TTL)
 async def get_order(order_id: int):
     rows = await repository.query(
-        """
+        """--sql
         SELECT id, user_id, status, total_amount, created_at
         FROM orders
         WHERE id = %s
@@ -52,15 +48,18 @@ async def get_order(order_id: int):
 
 @router.get("/{order_id}/items", response_model=list[OrderItemResponse])
 @cache(ttl=config.CACHE_TTL)
-async def list_order_items(order_id: int):
+async def list_order_items(
+    order_id: int, limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)
+):
     return await repository.query(
-        """
+        """--sql
         SELECT id, order_id, product_id, quantity, unit_price, created_at
         FROM order_items
         WHERE order_id = %s
         ORDER BY id
+        LIMIT %s OFFSET %s
         """,
-        (order_id,),
+        (order_id, limit, offset),
     )
 
 
@@ -84,7 +83,7 @@ async def create_order(order: OrderCreate):
     priced_items = []
     for item in order.items:
         product_rows = await repository.query(
-            """
+            """--sql
             SELECT id, price
             FROM products
             WHERE id = %s

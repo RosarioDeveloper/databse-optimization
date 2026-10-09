@@ -46,7 +46,7 @@ async def get_user(user_id: int):
 
 
 @router.get("/{user_id}/orders", response_model=list[OrderResponse])
-@cache(ttl=config.CACHE_TTL)
+# @cache(ttl=config.CACHE_TTL)
 async def list_user_orders(
     user_id: int,
     limit: int = Query(50, ge=1, le=500),

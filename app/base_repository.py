@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 from psycopg.abc import QueryNoTemplate
@@ -7,11 +8,14 @@ from psycopg_pool import PoolTimeout
 from app.database import pool
 from app.logger import logger
 
+db_semaphore = asyncio.Semaphore(50)
+
 
 class BaseRepository:
     async def query(self, sql: QueryNoTemplate, params: tuple[Any, ...] | None = None):
         try:
             async with (
+                db_semaphore,
                 pool.connection() as conn,
                 conn.cursor(row_factory=dict_row) as cursor,
             ):
